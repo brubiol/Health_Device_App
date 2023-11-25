@@ -27,9 +27,15 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  flutter_bluetooth_serial: ^0.4.0
+  sqflite: ^2.0.0
+  path: ^1.8.0
   flutter:
     sdk: flutter
   font_awesome_flutter: ^9.1.0
+
+
+  
 
 
   # The following adds the Cupertino Icons font to your application.

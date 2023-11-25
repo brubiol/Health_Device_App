@@ -40,6 +40,11 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+<string>Our application uses Bluetooth to connect to health devices.</string>
+<key>NSBluetoothPeripheralUsageDescription</key>
+<string>Our application uses Bluetooth to connect to health devices.</string>
+
 	<false/>
 </dict>
 </plist>
