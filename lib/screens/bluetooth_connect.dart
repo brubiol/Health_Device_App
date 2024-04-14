@@ -3,7 +3,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
+import 'package:health_device_app/models/db_helper.dart'; // Ensure this path is correct
 import 'package:health_device_app/models/metric.dart';
+import 'package:intl/intl.dart';
 
 class BluetoothScreen extends StatefulWidget {
   @override
@@ -14,6 +16,7 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   BluetoothConnection? connection;
   bool isConnecting = true;
   List<String> logs = []; // List to hold log messages
+  List<Map<String, dynamic>> savedReadings = []; // To store readings from DB
 
   List<Metric> metrics = [
     Metric(
@@ -37,6 +40,14 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   void initState() {
     super.initState();
     startBluetoothConnection();
+    fetchReadingsFromDB(); // Fetch readings from DB on init
+  }
+
+  void fetchReadingsFromDB() async {
+    var readings = await DBHelper.instance.getReadings();
+    setState(() {
+      savedReadings = readings;
+    });
   }
 
   void log(String message) {
@@ -89,11 +100,24 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
     final bpmMatch = RegExp(r'BPM: (\d+)').firstMatch(dataString);
     final spo2Match = RegExp(r'SpO2: (\d+)%').firstMatch(dataString);
 
+    double? temperature =
+        tempMatch != null ? double.tryParse(tempMatch.group(1)!) : null;
+    int? bpm = bpmMatch != null ? int.tryParse(bpmMatch.group(1)!) : null;
+    int? spo2 = spo2Match != null ? int.tryParse(spo2Match.group(1)!) : null;
+
     setState(() {
-      if (tempMatch != null) metrics[2].value = tempMatch.group(1) ?? 'N/A';
-      if (bpmMatch != null) metrics[0].value = bpmMatch.group(1) ?? 'N/A';
-      if (spo2Match != null) metrics[1].value = spo2Match.group(1) ?? 'N/A';
+      if (temperature != null) metrics[2].value = '${temperature}°C';
+      if (bpm != null) metrics[0].value = '$bpm BPM';
+      if (spo2 != null) metrics[1].value = '$spo2%';
     });
+
+    // Save to DB
+    if (temperature != null && bpm != null && spo2 != null) {
+      DBHelper.instance.insertReading(temperature, bpm, spo2);
+    }
+
+    // Fetch updated readings
+    fetchReadingsFromDB();
   }
 
   void disconnectFromDevice() {
@@ -116,9 +140,7 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Bluetooth Metrics'),
-      ),
+      appBar: AppBar(title: Text('Bluetooth Metrics')),
       body: Column(
         children: [
           Expanded(
@@ -135,6 +157,21 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
                       );
                     },
                   ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: savedReadings.length,
+              itemBuilder: (context, index) {
+                var reading = savedReadings[index];
+                return ListTile(
+                  title: Text(
+                      'Temperature: ${reading['temperature']}°C, BPM: ${reading['bpm']}, SpO2: ${reading['spo2']}%'),
+                  subtitle: Text(
+                    'Timestamp: ${DateFormat('yyyy-MM-dd h:mma').format(DateTime.fromMillisecondsSinceEpoch(reading['timestamp']))}',
+                  ),
+                );
+              },
+            ),
           ),
           Expanded(
             child: ListView.builder(

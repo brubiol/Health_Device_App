@@ -27,6 +27,7 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  intl: ^0.17.0
   flutter_bluetooth_serial: ^0.4.0
   sqflite: ^2.0.0
   path: ^1.8.0
