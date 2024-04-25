@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:health_device_app/models/db_helper.dart'; // Ensure this path is correct
 import 'package:health_device_app/models/metric.dart';
+import 'package:health_device_app/screens/ekg_screen.dart';
 import 'package:intl/intl.dart';
 
 class BluetoothScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   bool isConnecting = true;
   List<String> logs = []; // List to hold log messages
   List<Map<String, dynamic>> savedReadings = []; // To store readings from DB
+  List<int> ekgData = [];
 
   List<Metric> metrics = [
     Metric(
@@ -95,34 +97,57 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   }
 
   void _onDataReceived(Uint8List data) {
+    // Convert Uint8List to a string
     String dataString = String.fromCharCodes(data);
-    final tempMatch = RegExp(r'Temp: (\d+\.\d+)C').firstMatch(dataString);
-    final bpmMatch = RegExp(r'BPM: (\d+)').firstMatch(dataString);
-    final spo2Match = RegExp(r'SpO2: (\d+)%').firstMatch(dataString);
+    // Assuming that each message from the Arduino ends with a newline character.
+    var lines = dataString.split('\n');
+    for (var line in lines) {
+      // Skip empty lines
+      if (line.trim().isEmpty) continue;
 
-    double? temperature =
-        tempMatch != null ? double.tryParse(tempMatch.group(1)!) : null;
-    int? bpm = bpmMatch != null ? int.tryParse(bpmMatch.group(1)!) : null;
-    int? spo2 = spo2Match != null ? int.tryParse(spo2Match.group(1)!) : null;
+      // Check if the line contains EKG data
+      if (line.startsWith('EKG,')) {
+        var parts = line.split(',');
+        // Parse EKG data parts
+        if (parts.length >= 6) {
+          double? newData = double.tryParse(parts[1]);
+          double? avgData = double.tryParse(parts[2]);
+          double? scaledAvgData = double.tryParse(parts[3]);
+          double? maxData = double.tryParse(parts[4]);
+          double? beatsPerMinute = double.tryParse(parts[5]);
+        }
+      } else {
+        // Handle other data types like Temp, BPM, and SpO2
+        final tempMatch = RegExp(r'Temp: (\d+\.\d+)C').firstMatch(line);
+        final bpmMatch = RegExp(r'BPM: (\d+)').firstMatch(line);
+        final spo2Match = RegExp(r'SpO2: (\d+)%').firstMatch(line);
 
-    setState(() {
-      if (temperature != null) metrics[2].value = '${temperature}°C';
-      if (bpm != null) metrics[0].value = '$bpm BPM';
-      if (spo2 != null) metrics[1].value = '$spo2%';
-    });
+        double? temperature =
+            tempMatch != null ? double.tryParse(tempMatch.group(1)!) : null;
+        int? bpm = bpmMatch != null ? int.tryParse(bpmMatch.group(1)!) : null;
+        int? spo2 =
+            spo2Match != null ? int.tryParse(spo2Match.group(1)!) : null;
 
-    // Save to DB
-    if (temperature != null && bpm != null && spo2 != null) {
-      DBHelper.instance.insertReading(temperature, bpm, spo2);
+        setState(() {
+          if (temperature != null) metrics[2].value = '${temperature}°C';
+          if (bpm != null) metrics[0].value = '$bpm BPM';
+          if (spo2 != null) metrics[1].value = '$spo2%';
+        });
+
+        // Save to DB
+        if (temperature != null && bpm != null && spo2 != null) {
+          DBHelper.instance.insertReading(temperature, bpm, spo2);
+        }
+
+        // Fetch updated readings
+        fetchReadingsFromDB();
+      }
     }
-
-    // Fetch updated readings
-    fetchReadingsFromDB();
   }
 
   void disconnectFromDevice() {
     if (connection != null && connection!.isConnected) {
-      connection!.dispose();
+      //connection!.dispose();
       log('Disconnected from device');
       setState(() {
         isConnecting = true;
@@ -133,8 +158,8 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
 
   @override
   void dispose() {
-    disconnectFromDevice();
-    super.dispose();
+    //disconnectFromDevice();
+    //super.dispose();
   }
 
   @override
@@ -184,6 +209,17 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => EKGScreen(),
+            ),
+          );
+        },
+        child: Icon(Icons.auto_graph_outlined),
+        tooltip: 'Go to EKG Screen',
       ),
     );
   }
